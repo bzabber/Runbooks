@@ -133,14 +133,14 @@ else
 }
 
 $omsjson = @"
-[ { "Computer": "$ENV:COMPUTERNAME",
-    "TestType": "teamsflow",
-    "TestID": "$TestID",
-    "TransactionType": "searchformessage",
-    "TransactionResult": "$ReceiveStatus",
-    "TransactionTime": $ReceiveTime,
-    "TransactionMessage": "$TransMsg"
+[{   "Computer": "$ENV:COMPUTERNAME",
+     "TestType": "teamsflow",
+     "TestID": "$TestID",
+     "TransactionType": "searchformessage",
+     "TransactionResult": "$ReceiveStatus",
+     "TransactionTime": $ReceiveTime,
+     "TransactionMessage": "$TransMsg"
 }]
 "@
-
+  
 Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
