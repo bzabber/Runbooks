@@ -142,5 +142,4 @@ $omsjson = @"
      "TransactionMessage": "$TransMsg"
 }]
 "@
-  
 Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
