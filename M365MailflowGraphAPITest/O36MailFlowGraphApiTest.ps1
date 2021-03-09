@@ -1,21 +1,20 @@
 ####################################################################################################
 #- Name: O36MailFlowGraphApiTest.ps1                                                              -#
-#- Date: March 4, 2021  
-#- Developed by: Stephen Griffith                                                                          -#
+#- Date: March 4, 2021                                                                            -#
 #- Description: This script will leverage Graph API to send an email then validate the email      -# 
 #-              was recieved and feed results into Log Analytics                                  -#
 #- Dependencies:                                                                                  -#
-#-  - MSAL.PS PowerShell Module Library (Available from PowerShell Gallery)                       -#
+#- 	- MSAL.PS PowerShell Module Library (Available from PowerShell Gallery)                       -#
 #-  - OMSIngestionAPI Module Library (Available from PowerShell Gallery)                          -#  
-#-  - User credentials for Sender and Reciever                                                    -#
-#-  - Log analytics workspace and key                                                             -#
+#- 	- User credentials for Sender and Reciever                                                    -#
+#- 	- Log analytics workspace and key                                                             -#
 #-  - AAD App Registration with the following API Permissions                                     -#
-#-    -  Mail.Read                                                                                -#
-#-    -  Mail.ReadBasic                                                                           -#
-#-    -  Mail.ReadWrite                                                                           -#
-#-    -  Mail.Send                                                                                -#
-#-    -  Mail.Send.Shared                                                                         -#
-#-                                                                                                -#
+#- 	  -  Mail.Read                                                                                -#
+#- 	  -  Mail.ReadBasic                                                                           -#
+#- 	  -  Mail.ReadWrite                                                                           -#
+#- 	  -  Mail.Send                                                                                -#
+#- 	  -  Mail.Send.Shared                                                                         -#
+#- 	                                                                                              -#
 ####################################################################################################
 
 Import-Module MSAL.PS
@@ -33,16 +32,17 @@ $workspaceKey = Get-AutomationVariable -Name 'OMSPrimaryKey'
 $LogType = "O365SyntheticGraphAPI"
 $TestID = (get-date -format MMddyyyyhhmmss) + "-" + (get-random)
 
-$SenderCredential = Get-AutomationPSCredential -Name 'TeamsMailFlowSender'
-$ReceiverCredential = Get-AutomationPSCredential -Name 'TeamsMailFlowReceiver'
+$SenderCredential = Get-AutomationPSCredential -Name 'ExoMailFlowSender'
+$ReceiverCredential = Get-AutomationPSCredential -Name 'ExoMailFlowReceiver'
 $RecieverEmail = $ReceiverCredential.UserName
+
 
 # Send email to reciever
 $token = Get-MsalToken -ClientId $clientId -TenantId $tenantId -RedirectUri $redirectUri -UserCredential $SenderCredential
 $accessToken = $token.AccessToken
 
 $header = @{"Authorization" = "Bearer $accessToken"; "Content-Type" = "application/json" };
-$sendMailMessageUrl = https://graph.microsoft.com/v1.0/me/sendMail
+$sendMailMessageUrl = "https://graph.microsoft.com/v1.0/me/sendMail"
 
 # Create Message body
 $JSON = @"
@@ -71,21 +71,21 @@ $sw = New-Object Diagnostics.Stopwatch
 $sw.Start()
 
 Try {
-    Invoke-RestMethod -Method POST -Headers $header -Uri $sendMailMessageUrl -Body $JSON
-    $SendTime = $sw.ElapsedMilliseconds
-    $SendStatus = "success"
-    $TransMsg = ""
+  Invoke-RestMethod -Method POST -Headers $header -Uri $sendMailMessageUrl -Body $JSON
+  $SendTime = $sw.ElapsedMilliseconds
+  $SendStatus = "success"
+  $TransMsg = ""
 } 
 Catch {
-    $sw.Stop()
-    $SendTime = $sw.ElapsedMilliseconds
-    $SendStatus = "failure"
-    $TransMsg = "$_"
+  $sw.Stop()
+  $SendTime = $sw.ElapsedMilliseconds
+  $SendStatus = "failure"
+  $TransMsg = "$_"
 }
 
 $omsjson = @"
 [{  "Computer": "$ENV:COMPUTERNAME",
-    "TestType": "teamsflow",
+    "TestType": "mailflow",
     "TestID": "$TestID",
     "TransactionType": "sendmessage",
     "TransactionResult": "$SendStatus",
@@ -93,12 +93,12 @@ $omsjson = @"
     "TransactionMessage": "$TransMsg"
 }]
 "@
-
+write-output $omsjson
 # Send Monitoring Data for email
-Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
+#Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
 
 if ($SendStatus -eq "failure") {
-    Exit
+  Exit
 }
 
 # reply to email 
@@ -107,7 +107,7 @@ $replyAccessToken = $replyToken.AccessToken
 
 # Obtain latest message from Graph API
 $getMessageHeader = @{"Authorization" = "Bearer $replyAccessToken"; "Content-Type" = "application/json" };
-$getMessageMessageUrl = https://graph.microsoft.com/v1.0/me/messages?`$search=`Subject:Test Email $TestID`""
+$getMessageMessageUrl = "https://graph.microsoft.com/v1.0/me/messages?`$search=`"Subject:Test Email $TestID`""
 
 write-output $getMessageMessageUrl
 
@@ -117,29 +117,28 @@ $sw.Start()
 $getMessageReply = Invoke-RestMethod -Method GET -Headers $getMessageHeader -Uri $getMessageMessageUrl
 $sw.Stop()
 
-$ReceiveTime=$sw.ElapsedMilliseconds
+$ReceiveTime = $sw.ElapsedMilliseconds
 
 $messageCount = $getMessageReply.value.Count
 
-if($messageCount -gt 0)
-{
-    $ReceiveStatus="success"
-    $TransMsg = ""
+if ($messageCount -gt 0) {
+  $ReceiveStatus = "success"
+  $TransMsg = ""
 }
-else 
-{
-  $ReceiveStatus="failure"
+else {
+  $ReceiveStatus = "failure"
   $TransMsg = "Message with Subject 'Test Email $TestID' not found"
 }
 
 $omsjson = @"
 [{   "Computer": "$ENV:COMPUTERNAME",
-     "TestType": "teamsflow",
-     "TestID": "$TestID",
-     "TransactionType": "searchformessage",
-     "TransactionResult": "$ReceiveStatus",
-     "TransactionTime": $ReceiveTime,
-     "TransactionMessage": "$TransMsg"
+    "TestType": "mailflow",
+    "TestID": "$TestID",
+    "TransactionType": "searchformessage",
+    "TransactionResult": "$ReceiveStatus",
+    "TransactionTime": $ReceiveTime,
+    "TransactionMessage": "$TransMsg"
 }]
 "@
-Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
+write-output $omsjson
+#Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
