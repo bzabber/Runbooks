@@ -93,7 +93,10 @@ $omsjson = @"
     "TransactionMessage": "$TransMsg"
 }]
 "@
+
+# Used for debugging output.
 write-output $omsjson
+
 # Send Monitoring Data for email
 #Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
 
@@ -140,5 +143,8 @@ $omsjson = @"
     "TransactionMessage": "$TransMsg"
 }]
 "@
+
+# Used for debugging output.
 write-output $omsjson
+
 #Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
