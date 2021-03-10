@@ -32,6 +32,8 @@ $workspaceKey = Get-AutomationVariable -Name 'OMSPrimaryKey'
 $LogType = "O365SyntheticGraphAPI"
 $TestID = (get-date -format MMddyyyyhhmmss) + "-" + (get-random)
 
+
+#--- Update ExoMailFlowSender and ExoMailFlowReceiver to the correct credentials.
 $SenderCredential = Get-AutomationPSCredential -Name 'ExoMailFlowSender'
 $ReceiverCredential = Get-AutomationPSCredential -Name 'ExoMailFlowReceiver'
 $RecieverEmail = $ReceiverCredential.UserName
