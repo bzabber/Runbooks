@@ -1,5 +1,5 @@
 ####################################################################################################
-#- Name: O36MailFlowGraphApiTest.ps1                                                              -#
+#- Name: M365MailFlowGraphApiTest.ps1                                                              -#
 #- Date: March 4, 2021                                                                            -#
 #- Description: This script will leverage Graph API to send an email then validate the email      -# 
 #-              was recieved and feed results into Log Analytics                                  -#
