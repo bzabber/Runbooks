@@ -21,9 +21,9 @@ Import-Module MSAL.PS
 Import-Module OMSIngestionAPI
 
 #--- Get AD Application info from variables ---#
-$clientId = Get-AutomationVariable -Name 'BKMailflowClientID'
-$tenantId = Get-AutomationVariable -Name 'BKTentantID'
-$redirectUri = Get-AutomationVariable -Name 'BKRedirectURI'
+$clientId = Get-AutomationVariable -Name 'clientID'
+$tenantId = Get-AutomationVariable -Name 'tenantID'
+$redirectUri = Get-AutomationVariable -Name 'redirectURI'
 
 #--- Get Log Analytics authentication info from variables ---#
 $workspaceId = Get-AutomationVariable -Name 'OMSWorkSpaceID'
