@@ -1,5 +1,5 @@
 ####################################################################################################
-#- Name: M365MailFlowGraphApiTest.ps1                                                              -#
+#- Name: O36MailFlowGraphApiTest.ps1                                                              -#
 #- Date: March 4, 2021                                                                            -#
 #- Description: This script will leverage Graph API to send an email then validate the email      -# 
 #-              was recieved and feed results into Log Analytics                                  -#
@@ -21,9 +21,9 @@ Import-Module MSAL.PS
 Import-Module OMSIngestionAPI
 
 #--- Get AD Application info from variables ---#
-$clientId = Get-AutomationVariable -Name 'clientID'
-$tenantId = Get-AutomationVariable -Name 'tenantID'
-$redirectUri = Get-AutomationVariable -Name 'redirectURI'
+$clientId = Get-AutomationVariable -Name 'clientId'
+$tenantId = Get-AutomationVariable -Name 'tenantId'
+$redirectUri = Get-AutomationVariable -Name 'redirectUri'
 
 #--- Get Log Analytics authentication info from variables ---#
 $workspaceId = Get-AutomationVariable -Name 'OMSWorkSpaceID'
@@ -32,10 +32,8 @@ $workspaceKey = Get-AutomationVariable -Name 'OMSPrimaryKey'
 $LogType = "O365SyntheticGraphAPI"
 $TestID = (get-date -format MMddyyyyhhmmss) + "-" + (get-random)
 
-
-#--- Update ExoMailFlowSender and ExoMailFlowReceiver to the correct credentials.
-$SenderCredential = Get-AutomationPSCredential -Name 'ExoMailFlowSender'
-$ReceiverCredential = Get-AutomationPSCredential -Name 'ExoMailFlowReceiver'
+$SenderCredential = Get-AutomationPSCredential -Name 'O365MailFlowSender'
+$ReceiverCredential = Get-AutomationPSCredential -Name 'O365MailFlowReceiver'
 $RecieverEmail = $ReceiverCredential.UserName
 
 
@@ -96,9 +94,6 @@ $omsjson = @"
 }]
 "@
 
-# Used for debugging output.
-write-output $omsjson
-
 # Send Monitoring Data for email
 #Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
 
@@ -114,26 +109,31 @@ $replyAccessToken = $replyToken.AccessToken
 $getMessageHeader = @{"Authorization" = "Bearer $replyAccessToken"; "Content-Type" = "application/json" };
 $getMessageMessageUrl = "https://graph.microsoft.com/v1.0/me/messages?`$search=`"Subject:Test Email $TestID`""
 
-write-output $getMessageMessageUrl
-
 $sw = New-Object Diagnostics.Stopwatch
-$sw.Start()
 
-$getMessageReply = Invoke-RestMethod -Method GET -Headers $getMessageHeader -Uri $getMessageMessageUrl
-$sw.Stop()
+$retry = 0
 
-$ReceiveTime = $sw.ElapsedMilliseconds
+do {
+  Start-Sleep $retry
 
-$messageCount = $getMessageReply.value.Count
+  $sw.Start()
+  $getMessageReply = Invoke-RestMethod -Method GET -Headers $getMessageHeader -Uri $getMessageMessageUrl
+  $sw.Stop()
 
-if ($messageCount -gt 0) {
-  $ReceiveStatus = "success"
-  $TransMsg = ""
-}
-else {
-  $ReceiveStatus = "failure"
-  $TransMsg = "Message with Subject 'Test Email $TestID' not found"
-}
+  $ReceiveTime = $sw.ElapsedMilliseconds
+
+  $messageCount = $getMessageReply.value.Count
+
+  if ($messageCount -gt 0) {
+    $ReceiveStatus = "success"
+    $TransMsg = ""
+  }
+  else {
+    $ReceiveStatus = "failure"
+    $TransMsg = "Message with Subject 'Test Email $TestID' not found"
+  }
+  $retry++
+} until (($messageCount -gt 0) -or ($retry -gt 10))
 
 $omsjson = @"
 [{   "Computer": "$ENV:COMPUTERNAME",
@@ -145,8 +145,26 @@ $omsjson = @"
     "TransactionMessage": "$TransMsg"
 }]
 "@
-
-# Used for debugging output.
-write-output $omsjson
+# --- Send to Log Analytics
 
 #Send-OMSAPIIngestionFile -customerId $workspaceId -sharedKey $workspaceKey -body $omsjson -logType $logType
+
+if ($ReceiveStatus -eq "failure") {
+  Exit
+}
+
+$messageId = $getMessageReply.value.id
+
+try {
+  $deleteMessage = @{"Authorization" = "Bearer $replyAccessToken" };
+
+  $deleteMessageUrl = "https://graph.microsoft.com/v1.0/me/messages/$messageId"
+
+  $getMessageReply = Invoke-RestMethod -Method Delete -Headers $deleteMessage -Uri $deleteMessageUrl
+
+  write-output "Message Test Email $TestID Deleted Successfully"
+}
+catch {
+  write-output "Error Deleting Message with subject Test Email $TestID"
+  write-output $_
+}
